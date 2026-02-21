@@ -1,6 +1,21 @@
+<<<<<<< HEAD
 # AceUp
 
 AceUp is a comprehensive platform designed to empower startups, investors, and business growth. It provides tools for startup registration, investment management, and business scaling.
+=======
+<<<<<<< HEAD
+# AI4Business
+
+For Login: ehmedlicelal2@gmail.com : Jalal123
+Or you can register via your mail account
+
+AI4Business is a comprehensive platform designed to empower startups, investors, and business growth. It provides tools for startup registration, investment management, and business scaling.
+=======
+# AceUp
+
+AceUp is a comprehensive platform designed to empower startups, investors, and business growth. It provides tools for startup registration, investment management, and business scaling.
+>>>>>>> 031a3a7 (logo)
+>>>>>>> 673cc10 (fix)
 
 ## 🚀 Tech Stack
 
@@ -22,7 +37,15 @@ AceUp is a comprehensive platform designed to empower startups, investors, and b
 ## 📁 Project Structure
 
 ```bash
+<<<<<<< HEAD
 AceUp/
+=======
+<<<<<<< HEAD
+AI4Business/
+=======
+AceUp/
+>>>>>>> 031a3a7 (logo)
+>>>>>>> 673cc10 (fix)
 ├── frontend/           # React + Vite frontend application
 │   ├── src/           # Source code
 │   └── public/        # Static assets
@@ -43,7 +66,15 @@ AceUp/
 1. **Clone the repository**
    ```bash
    git clone <repository-url>
+<<<<<<< HEAD
    cd AceUp
+=======
+<<<<<<< HEAD
+   cd AI4Business
+=======
+   cd AceUp
+>>>>>>> 031a3a7 (logo)
+>>>>>>> 673cc10 (fix)
    ```
 
 2. **Backend Setup**
@@ -94,4 +125,12 @@ AceUp/
    - Backend API: `http://localhost:5000`
 
 ## 📜 License
+<<<<<<< HEAD
 This project is licensed under the ISC License.
+=======
+<<<<<<< HEAD
+This project is licensed under the ISC License.
+=======
+This project is licensed under the ISC License.
+>>>>>>> 031a3a7 (logo)
+>>>>>>> 673cc10 (fix)

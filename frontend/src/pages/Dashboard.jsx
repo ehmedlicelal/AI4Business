@@ -7,6 +7,7 @@ import TasksWidget from '../components/widgets/TasksWidget';
 import BusinessWidget from '../components/widgets/BusinessWidget';
 import AdminNotificationsWidget from '../components/widgets/AdminNotificationsWidget';
 import TechParkRequestsWidget from '../components/widgets/TechParkRequestsWidget';
+import ChatPanel from '../components/ChatPanel';
 import { useAuth } from '../context/AuthContext';
 import BackButton from '../components/BackButton';
 import { supabase } from '../lib/supabase';
@@ -19,6 +20,7 @@ export default function Dashboard() {
 
     const [workspaceId, setWorkspaceId] = useState(stateWorkspaceId || localStorage.getItem('ai4b_workspace_id') || null);
     const [workspaceType, setWorkspaceType] = useState(stateWorkspaceType || localStorage.getItem('ai4b_workspace_type') || null);
+    const [isChatOpen, setIsChatOpen] = useState(false);
 
     const [workspaceName, setWorkspaceName] = useState('');
 
@@ -59,7 +61,7 @@ export default function Dashboard() {
 
     return (
         <div className="flex min-h-screen bg-[#0f1729]">
-            <Sidebar />
+            <Sidebar onChatOpen={() => setIsChatOpen(true)} />
 
             <main className="flex-1 p-8 overflow-y-auto">
                 {/* Header */}
@@ -130,6 +132,7 @@ export default function Dashboard() {
                     </div>
                 )}
             </main>
+            <ChatPanel isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
         </div>
     );
 }

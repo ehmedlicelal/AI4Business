@@ -1,7 +1,7 @@
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-export default function Sidebar() {
+export default function Sidebar({ onChatOpen }) {
     const { user, profile, signOut } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
@@ -81,6 +81,16 @@ export default function Sidebar() {
                     </svg>
                     Tasks
                 </Link>
+
+                <button
+                    onClick={onChatOpen}
+                    className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium rounded-xl transition-colors w-full text-left text-gray-400 hover:text-white hover:bg-white/5`}
+                >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                    Messages
+                </button>
 
                 {profile?.role === 'Admin' && (
                     <Link

@@ -274,7 +274,7 @@ export default function Binder() {
                                     swipeThreshold={60}
                                     flickTimeout={500}
                                 >
-                                    <div className="w-full h-full rounded-3xl overflow-hidden border border-white/10 bg-gradient-to-b from-[#1A2238] to-[#0f1729] shadow-2xl select-none cursor-grab active:cursor-grabbing transition-transform duration-300 ease-out transform-gpu">
+                                    <div className="w-full h-full rounded-3xl overflow-hidden border border-white/10 bg-gradient-to-b from-[#1A2238] to-[#0f1729] shadow-2xl select-none cursor-grab active:cursor-grabbing">
                                         {/* Image / Header */}
                                         <div className="relative h-[200px] bg-gradient-to-br from-slate-700/50 to-slate-800/50 overflow-hidden flex items-center justify-center">
                                             {startup.image_url ? (

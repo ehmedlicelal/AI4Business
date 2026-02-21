@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiFetch } from '../lib/api';
 import { supabase } from '../lib/supabase';
+import RegistrationChatbot from '../components/RegistrationChatbot';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
 
@@ -844,6 +845,7 @@ export default function TechParkRegistration() {
                     </div>
                 </div>
             </div>
+            <RegistrationChatbot />
         </div>
     );
 }

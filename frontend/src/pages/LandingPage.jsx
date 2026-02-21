@@ -16,7 +16,7 @@ export default function LandingPage() {
             </div>
 
             {/* Navbar */}
-            <nav className="relative z-10 px-8 py-6 flex justify-between items-center max-w-7xl mx-auto w-full">
+            <nav className="relative z-50 px-8 py-6 flex justify-between items-center max-w-7xl mx-auto w-full">
                 <div className="text-2xl font-bold tracking-tight">
                     Ace<span className="text-[#85BB65]">Up</span>
                 </div>
