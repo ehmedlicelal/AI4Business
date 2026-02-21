@@ -34,7 +34,7 @@ export default function InvestorHome() {
                         }}
                     />
                     <div className="text-2xl font-bold tracking-tight cursor-pointer" onClick={() => navigate('/')}>
-                        AI4<span className="text-[#85BB65]">Business</span>
+                        Ace<span className="text-[#85BB65]">Up</span>
                     </div>
                 </div>
                 <ProfileDropdown dashboardPath="/investor/dashboard" />

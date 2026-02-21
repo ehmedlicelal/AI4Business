@@ -187,7 +187,11 @@ export default function TechParkRegistration() {
 
     const prevPage = () => {
         setError('');
-        setPage(prev => Math.max(0, prev - 1));
+        if (page === 0) {
+            navigate(-1);
+        } else {
+            setPage(prev => Math.max(0, prev - 1));
+        }
     };
 
     const submitForm = async (e, isDraft = false) => {
@@ -800,47 +804,45 @@ export default function TechParkRegistration() {
                 </div>
 
                 {/* Navigation and Draft Buttons */}
-                {page > 0 && (
-                    <div className="mt-10 flex flex-col sm:flex-row items-center justify-between border-t border-slate-700/50 pt-6 gap-4">
+                <div className="mt-10 flex flex-col sm:flex-row items-center justify-between border-t border-slate-700/50 pt-6 gap-4">
+                    <button
+                        type="button"
+                        onClick={prevPage}
+                        className="bg-slate-700 hover:bg-slate-600 text-white px-6 py-3 rounded-xl font-semibold transition-colors w-full sm:w-auto"
+                    >
+                        Back
+                    </button>
+
+                    <div className="flex gap-4 w-full sm:w-auto">
                         <button
                             type="button"
-                            onClick={prevPage}
-                            className={`px-6 py-3 rounded-xl font-semibold transition-colors w-full sm:w-auto ${page === 1 ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'bg-slate-700 hover:bg-slate-600 text-white'}`}
+                            onClick={(e) => submitForm(e, true)}
+                            disabled={submitting}
+                            className="px-6 py-3 bg-transparent hover:bg-slate-800 border-2 border-slate-700 text-slate-300 rounded-xl font-semibold transition-colors w-full sm:w-auto shadow-inner"
                         >
-                            Back
+                            {existingApp ? 'Update Draft' : 'Save as Draft'}
                         </button>
 
-                        <div className="flex gap-4 w-full sm:w-auto">
+                        {page < 5 ? (
                             <button
                                 type="button"
-                                onClick={(e) => submitForm(e, true)}
-                                disabled={submitting}
-                                className="px-6 py-3 bg-transparent hover:bg-slate-800 border-2 border-slate-700 text-slate-300 rounded-xl font-semibold transition-colors w-full sm:w-auto shadow-inner"
+                                onClick={nextPage}
+                                className="bg-[#85BB65] hover:bg-[#6FA84E] text-white px-8 py-3 rounded-xl font-bold transition-colors shadow-lg w-full sm:w-auto shadow-[#85BB65]/20"
                             >
-                                {existingApp ? 'Update Draft' : 'Save as Draft'}
+                                Next Step
                             </button>
-
-                            {page < 5 ? (
-                                <button
-                                    type="button"
-                                    onClick={nextPage}
-                                    className="bg-[#85BB65] hover:bg-[#6FA84E] text-white px-8 py-3 rounded-xl font-bold transition-colors shadow-lg w-full sm:w-auto shadow-[#85BB65]/20"
-                                >
-                                    Next Step
-                                </button>
-                            ) : (
-                                <button
-                                    type="button"
-                                    onClick={(e) => submitForm(e, false)}
-                                    disabled={submitting}
-                                    className={`px-8 py-3 rounded-xl font-bold transition-colors shadow-lg w-full sm:w-auto ${submitting ? 'bg-slate-600 text-slate-400 cursor-not-allowed' : 'bg-[#85BB65] hover:bg-[#6FA84E] text-white shadow-[#85BB65]/20'}`}
-                                >
-                                    {submitting ? 'Submitting...' : 'Submit Form'}
-                                </button>
-                            )}
-                        </div>
+                        ) : (
+                            <button
+                                type="button"
+                                onClick={(e) => submitForm(e, false)}
+                                disabled={submitting}
+                                className={`px-8 py-3 rounded-xl font-bold transition-colors shadow-lg w-full sm:w-auto ${submitting ? 'bg-slate-600 text-slate-400 cursor-not-allowed' : 'bg-[#85BB65] hover:bg-[#6FA84E] text-white shadow-[#85BB65]/20'}`}
+                            >
+                                {submitting ? 'Submitting...' : 'Submit Form'}
+                            </button>
+                        )}
                     </div>
-                )}
+                </div>
             </div>
         </div>
     );

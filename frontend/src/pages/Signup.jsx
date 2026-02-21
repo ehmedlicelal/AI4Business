@@ -97,7 +97,7 @@ export default function Signup() {
                 {/* Logo */}
                 <div className="text-center mb-8">
                     <h1 className="text-3xl font-bold text-white tracking-tight">
-                        AI4<span className="text-[#85BB65]">Business</span>
+                        Ace<span className="text-[#85BB65]">Up</span>
                     </h1>
                     <p className="text-gray-400 mt-2">Create your account</p>
                 </div>

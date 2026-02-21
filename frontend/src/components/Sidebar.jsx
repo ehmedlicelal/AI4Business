@@ -20,7 +20,7 @@ export default function Sidebar() {
             {/* Logo */}
             <Link to="/dashboard" className="block p-6 border-b border-white/10 hover:bg-white/5 transition-colors">
                 <h1 className="text-xl font-bold text-white tracking-tight">
-                    AI4<span className="text-[#85BB65]">Business</span>
+                    Ace<span className="text-[#85BB65]">Up</span>
                 </h1>
             </Link>
 

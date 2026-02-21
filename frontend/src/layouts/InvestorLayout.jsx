@@ -71,9 +71,9 @@ export default function InvestorLayout() {
                 {/* Logo Area */}
                 <div className="h-16 flex items-center justify-center border-b border-[#85BB65]/10">
                     <span className={`text-xl font-bold tracking-tight ${!isSidebarOpen && 'hidden'}`}>
-                        AI4<span className="text-[#85BB65]">Business</span>
+                        Ace<span className="text-[#85BB65]">Up</span>
                     </span>
-                    {!isSidebarOpen && <span className="text-[#85BB65] font-bold text-xl">AI</span>}
+                    {!isSidebarOpen && <span className="text-[#85BB65] font-bold text-xl">AU</span>}
                 </div>
 
                 {/* Navigation */}

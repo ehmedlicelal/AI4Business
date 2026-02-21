@@ -299,7 +299,7 @@ Provide a JSON response evaluating their potential for commercial excellence. Re
                 <div className="flex items-center gap-4">
                     <BackButton />
                     <div className="text-2xl font-bold tracking-tight cursor-pointer" onClick={() => navigate('/')}>
-                        AI4<span className="text-[#85BB65]">Business</span>
+                        Ace<span className="text-[#85BB65]">Up</span>
                     </div>
                 </div>
             </nav>
