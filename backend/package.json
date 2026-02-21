@@ -1,0 +1,30 @@
+{
+  "name": "ai4business-backend",
+  "version": "1.0.0",
+  "description": "AI4Business Backend API — Node.js + Express + Supabase",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.1",
+    "cors": "^2.8.5",
+    "debug": "^4.4.3",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.0",
+    "helmet": "^8.0.0",
+    "iconv-lite": "^0.7.2",
+    "morgan": "^1.10.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.13"
+  }
+}
