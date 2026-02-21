@@ -83,6 +83,7 @@ import InvestorHome from './pages/investor/Home';
 import DiscoverStartups from './pages/investor/DiscoverStartups';
 import Binder from './pages/investor/Binder';
 import EnvironmentSelection from './pages/EnvironmentSelection';
+import AdminPanel from './pages/admin/AdminPanel';
 
 function AppRoutes() {
     return (
@@ -93,6 +94,9 @@ function AppRoutes() {
             <Route path="/environment-selection" element={<ProtectedRoute><EnvironmentSelection /></ProtectedRoute>} />
             <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
             <Route path="/signup" element={<PublicRoute><Signup /></PublicRoute>} />
+
+            {/* Admin Panel */}
+            <Route path="/admin/profiles" element={<ProtectedRoute><AdminPanel /></ProtectedRoute>} />
 
             {/* Main Application Dashboard */}
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />

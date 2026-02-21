@@ -127,15 +127,7 @@ router.get('/binder-deck', async (req, res) => {
 
         const { category } = req.query;
 
-        // Get IDs this user already swiped on
-        const { data: swipedData } = await supabaseAdmin
-            .from('startup_swipes')
-            .select('startup_id')
-            .eq('investor_id', user.id);
-
-        const swipedIds = (swipedData || []).map(s => s.startup_id);
-
-        // Build query
+        // Build query — show all startups every session so users can reconsider
         let query = supabaseAdmin
             .from('startups')
             .select('id, name, image_url, description, stage, size, industry, created_at, ace_score')
@@ -144,12 +136,6 @@ router.get('/binder-deck', async (req, res) => {
 
         if (category && category !== 'All') {
             query = query.contains('industry', [category]);
-        }
-
-        // Exclude already-swiped startups
-        if (swipedIds.length > 0) {
-            console.log('Excluding swiped IDs:', swipedIds);
-            query = query.filter('id', 'not.in', `(${swipedIds.join(',')})`);
         }
 
         const { data, error } = await query;

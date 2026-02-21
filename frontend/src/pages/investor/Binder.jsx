@@ -1,8 +1,7 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { apiFetch } from '../../lib/api';
-import TinderCard from 'react-tinder-card';
 import BackButton from '../../components/BackButton';
 import ProfileDropdown from '../../components/ProfileDropdown';
 
@@ -12,35 +11,29 @@ export default function Binder() {
     const navigate = useNavigate();
     const { user } = useAuth();
 
-    const [phase, setPhase] = useState('filter'); // 'filter' | 'swiping' | 'done'
+    const [phase, setPhase] = useState('filter');
     const [selectedCategory, setSelectedCategory] = useState('All');
     const [deck, setDeck] = useState([]);
-    const [currentIndex, setCurrentIndex] = useState(-1);
     const [loading, setLoading] = useState(false);
-    const [lastDirection, setLastDirection] = useState('');
     const [showDetails, setShowDetails] = useState(false);
     const [detailStartup, setDetailStartup] = useState(null);
     const [swipeStats, setSwipeStats] = useState({});
+    const [removed, setRemoved] = useState(new Set());
 
-    const currentIndexRef = useRef(currentIndex);
-    const childRefs = useMemo(
-        () => Array(deck.length).fill(0).map(() => React.createRef()),
-        [deck.length]
-    );
+    const containerRef = useRef(null);
+    const dragState = useRef({ active: false, startX: 0, startY: 0, el: null, cardId: null });
 
-    useEffect(() => {
-        currentIndexRef.current = currentIndex;
-    }, [currentIndex]);
+    const activeCards = deck.filter(s => !removed.has(s.id));
 
-    const fetchDeck = async () => {
+    const fetchDeckRef = useRef(null);
+    fetchDeckRef.current = async () => {
         setLoading(true);
         try {
             const data = await apiFetch(`/api/startups/binder-deck?category=${selectedCategory}`);
             const cards = data.data || [];
             setDeck(cards);
-            setCurrentIndex(cards.length - 1);
+            setRemoved(new Set());
 
-            // Fetch bulk swipe stats
             if (cards.length > 0) {
                 const ids = cards.map(c => c.id);
                 const stats = await apiFetch('/api/startups/swipe-stats-bulk', {
@@ -58,54 +51,100 @@ export default function Binder() {
 
     const startSwiping = () => {
         setPhase('swiping');
-        fetchDeck();
+        fetchDeckRef.current();
     };
 
-    const swiped = async (direction, startup, index) => {
-        setLastDirection(direction);
-        setCurrentIndex(index - 1);
-
-        // Map swipe up to showing details
-        if (direction === 'up') {
-            setDetailStartup(startup);
-            setShowDetails(true);
-            return;
-        }
-
-        const swipeDir = direction === 'right' ? 'right' : 'left';
+    const saveAsFavorite = useCallback(async (startupId) => {
         try {
-            await apiFetch(`/api/startups/${startup.id}/swipe`, {
+            await apiFetch(`/api/startups/${startupId}/swipe`, {
                 method: 'POST',
-                body: JSON.stringify({ direction: swipeDir })
+                body: JSON.stringify({ direction: 'right' })
             });
-
-            // Update local stats
-            setSwipeStats(prev => ({
-                ...prev,
-                [startup.id]: {
-                    totalSwipes: (prev[startup.id]?.totalSwipes || 0) + 1,
-                    favorites: (prev[startup.id]?.favorites || 0) + (swipeDir === 'right' ? 1 : 0)
-                }
-            }));
         } catch (err) {
-            console.error('Failed to record swipe:', err);
+            console.error('Failed to save favorite:', err);
+        }
+    }, []);
+
+    const removeCard = useCallback((cardId, direction) => {
+        if (direction === 'right') {
+            saveAsFavorite(cardId);
+        }
+        setRemoved(prev => {
+            const next = new Set(prev);
+            next.add(cardId);
+            return next;
+        });
+    }, [saveAsFavorite]);
+
+    // Check if all cards are gone and reload
+    const checkAndReload = useCallback((newRemovedSize) => {
+        if (newRemovedSize >= deck.length && deck.length > 0) {
+            setTimeout(() => fetchDeckRef.current(), 1200);
+        }
+    }, [deck.length]);
+
+    const programmaticSwipe = useCallback((direction) => {
+        if (activeCards.length === 0) return;
+        const topCard = activeCards[0];
+        const el = containerRef.current?.querySelector(`[data-card-id="${topCard.id}"]`);
+        if (!el) return;
+
+        const moveOut = window.innerWidth * 1.5;
+        const toX = direction === 'right' ? moveOut : -moveOut;
+        el.style.transition = 'transform 0.5s ease';
+        el.style.transform = `translate(${toX}px, -100px) rotate(${direction === 'right' ? -30 : 30}deg)`;
+
+        setTimeout(() => {
+            removeCard(topCard.id, direction);
+            checkAndReload(removed.size + 1);
+        }, 400);
+    }, [activeCards, removeCard, checkAndReload, removed.size]);
+
+    const handlePointerDown = useCallback((e, cardId) => {
+        const el = e.currentTarget;
+        el.setPointerCapture(e.pointerId);
+        dragState.current = { active: true, startX: e.clientX, startY: e.clientY, el, cardId };
+        el.style.transition = 'none';
+    }, []);
+
+    const handlePointerMove = useCallback((e) => {
+        const ds = dragState.current;
+        if (!ds.active || !ds.el) return;
+
+        const deltaX = e.clientX - ds.startX;
+        const deltaY = e.clientY - ds.startY;
+        const rotate = deltaX * 0.05;
+
+        ds.el.style.transform = `translate(${deltaX}px, ${deltaY}px) rotate(${rotate}deg)`;
+    }, []);
+
+    const handlePointerUp = useCallback((e) => {
+        const ds = dragState.current;
+        if (!ds.active || !ds.el) return;
+
+        const deltaX = e.clientX - ds.startX;
+        const moveOutWidth = window.innerWidth;
+        const keep = Math.abs(deltaX) < 100;
+
+        if (keep) {
+            ds.el.style.transition = 'transform 0.3s ease';
+            ds.el.style.transform = '';
+        } else {
+            const toX = deltaX > 0 ? moveOutWidth * 1.5 : -moveOutWidth * 1.5;
+            const rotate = deltaX * 0.05;
+            ds.el.style.transition = 'transform 0.5s ease';
+            ds.el.style.transform = `translate(${toX}px, ${e.clientY - ds.startY}px) rotate(${rotate}deg)`;
+
+            const cardId = ds.cardId;
+            const direction = deltaX > 0 ? 'right' : 'left';
+            setTimeout(() => {
+                removeCard(cardId, direction);
+                checkAndReload(removed.size + 1);
+            }, 400);
         }
 
-        if (index - 1 < 0) {
-            setTimeout(() => setPhase('done'), 500);
-        }
-    };
-
-    const outOfFrame = (name, idx) => {
-        // Card left the screen
-    };
-
-    const swipe = async (dir) => {
-        if (currentIndex < 0 || currentIndex >= deck.length) return;
-        await childRefs[currentIndex]?.current?.swipe(dir);
-    };
-
-    const canSwipe = currentIndex >= 0;
+        dragState.current = { active: false, startX: 0, startY: 0, el: null, cardId: null };
+    }, [removeCard, checkAndReload, removed.size]);
 
     const getScoreColor = (score) => {
         if (score >= 80) return 'text-emerald-400';
@@ -181,53 +220,6 @@ export default function Binder() {
         );
     }
 
-    // ── DONE PHASE ────────────────────────────────
-    if (phase === 'done') {
-        return (
-            <div className="min-h-screen bg-[#0f1729] text-white flex flex-col relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0 pointer-events-none">
-                    <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-purple-500/10 rounded-full blur-[120px]" />
-                </div>
-
-                <nav className="relative z-10 px-8 py-6 flex justify-between items-center max-w-7xl mx-auto w-full">
-                    <div className="flex items-center gap-4">
-                        <BackButton />
-                        <div className="text-2xl font-bold tracking-tight cursor-pointer" onClick={() => navigate('/')}>
-                            Ace<span className="text-[#85BB65]">Up</span>
-                        </div>
-                    </div>
-                    <ProfileDropdown dashboardPath="/investor/dashboard" />
-                </nav>
-
-                <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-4">
-                    <div className="text-center space-y-6 animate-fade-in-up">
-                        <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-[#85BB65] to-emerald-400 flex items-center justify-center">
-                            <svg className="w-10 h-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                            </svg>
-                        </div>
-                        <h2 className="text-3xl font-bold">No more startups left!</h2>
-                        <p className="text-gray-400 max-w-md mx-auto">You've reached the end of the deck. Check back later for new opportunities or refine your category search.</p>
-                        <div className="flex gap-4 justify-center mt-6">
-                            <button
-                                onClick={() => { setPhase('filter'); setDeck([]); setCurrentIndex(-1); }}
-                                className="px-6 py-3 bg-gradient-to-r from-rose-500 to-orange-400 text-white font-bold rounded-xl hover:scale-105 transition-transform"
-                            >
-                                Swipe Again
-                            </button>
-                            <button
-                                onClick={() => navigate('/investor/discover')}
-                                className="px-6 py-3 bg-white/5 border border-white/10 text-white font-bold rounded-xl hover:bg-white/10 transition-colors"
-                            >
-                                Browse Manually
-                            </button>
-                        </div>
-                    </div>
-                </main>
-            </div>
-        );
-    }
-
     // ── SWIPING PHASE ─────────────────────────────
     return (
         <div className="min-h-screen bg-[#0f1729] text-white flex flex-col relative overflow-hidden">
@@ -261,99 +253,116 @@ export default function Binder() {
                 ) : (
                     <>
                         {/* Card Stack */}
-                        <div className="relative w-full max-w-[420px] h-[520px] mx-auto">
-                            {deck.map((startup, index) => (
-                                <TinderCard
-                                    ref={childRefs[index]}
-                                    className="absolute w-full h-full"
-                                    key={startup.id}
-                                    onSwipe={(dir) => swiped(dir, startup, index)}
-                                    onCardLeftScreen={() => outOfFrame(startup.name, index)}
-                                    preventSwipe={['down']}
-                                    swipeRequirementType="position"
-                                    swipeThreshold={60}
-                                    flickTimeout={500}
-                                >
-                                    <div className="w-full h-full rounded-3xl overflow-hidden border border-white/10 bg-gradient-to-b from-[#1A2238] to-[#0f1729] shadow-2xl select-none cursor-grab active:cursor-grabbing">
-                                        {/* Image / Header */}
-                                        <div className="relative h-[200px] bg-gradient-to-br from-slate-700/50 to-slate-800/50 overflow-hidden flex items-center justify-center">
-                                            {startup.image_url ? (
-                                                <img src={startup.image_url} alt={startup.name} className="w-full h-full object-cover" />
-                                            ) : (
-                                                <div className="text-7xl font-black text-white/10">{startup.name.charAt(0)}</div>
-                                            )}
-                                            <div className="absolute inset-0 bg-gradient-to-t from-[#1A2238] via-transparent to-transparent" />
-
-                                            {startup.ace_score != null && (
-                                                <div className="absolute top-4 right-4 w-14 h-14 rounded-2xl bg-[#0f1729]/80 backdrop-blur-sm border border-white/10 flex flex-col items-center justify-center">
-                                                    <span className={`text-lg font-black ${getScoreColor(startup.ace_score)}`}>{startup.ace_score}</span>
-                                                    <span className="text-[8px] font-bold text-gray-400 uppercase">ACE</span>
+                        <div ref={containerRef} className="relative w-full max-w-[420px] h-[520px] mx-auto">
+                            {[...activeCards].reverse().map((startup, reverseIdx) => {
+                                const i = activeCards.length - 1 - reverseIdx; // actual position (0 = top)
+                                const stackIdx = i; // for stacking visuals: 0 = front
+                                return (
+                                    <div
+                                        key={startup.id}
+                                        data-card-id={startup.id}
+                                        className="absolute w-full h-full select-none touch-none"
+                                        style={{
+                                            zIndex: activeCards.length - stackIdx,
+                                            transform: stackIdx === 0 ? 'none' : `scale(${(20 - stackIdx) / 20}) translateY(-${30 * stackIdx}px)`,
+                                            opacity: Math.max(0, (10 - stackIdx) / 10),
+                                            pointerEvents: stackIdx === 0 ? 'auto' : 'none',
+                                            cursor: stackIdx === 0 ? 'grab' : 'default',
+                                        }}
+                                        onPointerDown={stackIdx === 0 ? (e) => handlePointerDown(e, startup.id) : undefined}
+                                        onPointerMove={stackIdx === 0 ? handlePointerMove : undefined}
+                                        onPointerUp={stackIdx === 0 ? handlePointerUp : undefined}
+                                    >
+                                        <div className="w-full h-full rounded-3xl overflow-hidden border border-white/10 bg-gradient-to-b from-[#1A2238] to-[#0f1729] shadow-2xl">
+                                            {/* Image / Header */}
+                                            <div className="relative h-[200px] bg-gradient-to-br from-slate-700/50 to-slate-800/50 overflow-hidden flex items-center justify-center">
+                                                {startup.image_url ? (
+                                                    <img
+                                                        src={startup.image_url}
+                                                        alt={startup.name}
+                                                        className="w-full h-full object-cover"
+                                                        onError={(e) => { e.target.style.display = 'none'; if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex'; }}
+                                                    />
+                                                ) : null}
+                                                <div
+                                                    className={`${startup.image_url ? 'hidden' : 'flex'} w-full h-full items-center justify-center`}
+                                                    style={{ background: `linear-gradient(135deg, hsl(${(startup.name.charCodeAt(0) * 37) % 360}, 60%, 35%), hsl(${(startup.name.charCodeAt(0) * 37 + 60) % 360}, 70%, 25%))` }}
+                                                >
+                                                    <span className="text-7xl font-black text-white/30">{startup.name.charAt(0)}</span>
                                                 </div>
-                                            )}
+                                                <div className="absolute inset-0 bg-gradient-to-t from-[#1A2238] via-transparent to-transparent" />
 
-                                            <div className="absolute top-4 left-4 flex gap-2">
-                                                <div className="px-2.5 py-1 rounded-lg bg-[#0f1729]/80 backdrop-blur-sm border border-white/10 flex items-center gap-1.5 text-xs">
-                                                    <svg className="w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                                    </svg>
-                                                    <span className="text-gray-300 font-medium">{swipeStats[startup.id]?.totalSwipes || 0}</span>
-                                                </div>
-                                                <div className="px-2.5 py-1 rounded-lg bg-[#0f1729]/80 backdrop-blur-sm border border-rose-500/20 flex items-center gap-1.5 text-xs">
-                                                    <svg className="w-3.5 h-3.5 text-rose-400" fill="currentColor" viewBox="0 0 24 24">
-                                                        <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-                                                    </svg>
-                                                    <span className="text-rose-300 font-medium">{swipeStats[startup.id]?.favorites || 0}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Content */}
-                                        <div className="p-6 space-y-4">
-                                            <div>
-                                                <h2 className="text-2xl font-bold text-white">{startup.name}</h2>
-                                                <div className="flex flex-wrap gap-1.5 mt-2">
-                                                    {(startup.industry || []).slice(0, 3).map((ind, idx) => (
-                                                        <span key={idx} className="px-2.5 py-0.5 rounded-lg text-[11px] font-semibold bg-[#85BB65]/10 text-[#85BB65] border border-[#85BB65]/20">
-                                                            {ind}
-                                                        </span>
-                                                    ))}
-                                                </div>
-                                            </div>
-
-                                            <p className="text-gray-400 text-sm leading-relaxed line-clamp-3">
-                                                {startup.description || "No description provided."}
-                                            </p>
-
-                                            <div className="flex items-center gap-4 text-xs text-gray-500">
-                                                {(startup.stage || []).length > 0 && (
-                                                    <div className="flex items-center gap-1">
-                                                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
-                                                        <span>{startup.stage[0]}</span>
+                                                {startup.ace_score != null && (
+                                                    <div className="absolute top-4 right-4 w-14 h-14 rounded-2xl bg-[#0f1729]/80 backdrop-blur-sm border border-white/10 flex flex-col items-center justify-center">
+                                                        <span className={`text-lg font-black ${getScoreColor(startup.ace_score)}`}>{startup.ace_score}</span>
+                                                        <span className="text-[8px] font-bold text-gray-400 uppercase">ACE</span>
                                                     </div>
                                                 )}
-                                                {(startup.size || []).length > 0 && (
-                                                    <div className="flex items-center gap-1">
-                                                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                                                        <span>{startup.size[0]}</span>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
 
-                                        <div className="absolute bottom-4 left-0 right-0 flex justify-center">
-                                            <span className="text-[10px] text-gray-600 uppercase tracking-widest font-medium">Swipe to decide</span>
+                                                <div className="absolute top-4 left-4 flex gap-2">
+                                                    <div className="px-2.5 py-1 rounded-lg bg-[#0f1729]/80 backdrop-blur-sm border border-white/10 flex items-center gap-1.5 text-xs">
+                                                        <svg className="w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                        </svg>
+                                                        <span className="text-gray-300 font-medium">{swipeStats[startup.id]?.totalSwipes || 0}</span>
+                                                    </div>
+                                                    <div className="px-2.5 py-1 rounded-lg bg-[#0f1729]/80 backdrop-blur-sm border border-rose-500/20 flex items-center gap-1.5 text-xs">
+                                                        <svg className="w-3.5 h-3.5 text-rose-400" fill="currentColor" viewBox="0 0 24 24">
+                                                            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                                                        </svg>
+                                                        <span className="text-rose-300 font-medium">{swipeStats[startup.id]?.favorites || 0}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Content */}
+                                            <div className="p-6 space-y-4">
+                                                <div>
+                                                    <h2 className="text-2xl font-bold text-white">{startup.name}</h2>
+                                                    <div className="flex flex-wrap gap-1.5 mt-2">
+                                                        {(startup.industry || []).slice(0, 3).map((ind, idx) => (
+                                                            <span key={idx} className="px-2.5 py-0.5 rounded-lg text-[11px] font-semibold bg-[#85BB65]/10 text-[#85BB65] border border-[#85BB65]/20">
+                                                                {ind}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+
+                                                <p className="text-gray-400 text-sm leading-relaxed line-clamp-3">
+                                                    {startup.description || "No description provided."}
+                                                </p>
+
+                                                <div className="flex items-center gap-4 text-xs text-gray-500">
+                                                    {(startup.stage || []).length > 0 && (
+                                                        <div className="flex items-center gap-1">
+                                                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
+                                                            <span>{startup.stage[0]}</span>
+                                                        </div>
+                                                    )}
+                                                    {(startup.size || []).length > 0 && (
+                                                        <div className="flex items-center gap-1">
+                                                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                                                            <span>{startup.size[0]}</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            <div className="absolute bottom-4 left-0 right-0 flex justify-center">
+                                                <span className="text-[10px] text-gray-600 uppercase tracking-widest font-medium">Swipe to decide</span>
+                                            </div>
                                         </div>
                                     </div>
-                                </TinderCard>
-                            ))}
+                                );
+                            })}
                         </div>
 
                         {/* Action Buttons */}
                         <div className="flex items-center justify-center gap-6 mt-6 relative z-20">
                             <button
-                                onClick={() => swipe('left')}
-                                disabled={!canSwipe}
+                                onClick={() => programmaticSwipe('left')}
+                                disabled={activeCards.length === 0}
                                 className="w-16 h-16 rounded-full border-2 border-red-400/30 bg-red-500/10 hover:bg-red-500/20 flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-90 disabled:opacity-30 disabled:hover:scale-100 group"
                             >
                                 <svg className="w-7 h-7 text-red-400 group-hover:text-red-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -363,12 +372,12 @@ export default function Binder() {
 
                             <button
                                 onClick={() => {
-                                    if (currentIndex >= 0 && currentIndex < deck.length) {
-                                        setDetailStartup(deck[currentIndex]);
+                                    if (activeCards.length > 0) {
+                                        setDetailStartup(activeCards[0]);
                                         setShowDetails(true);
                                     }
                                 }}
-                                disabled={!canSwipe}
+                                disabled={activeCards.length === 0}
                                 className="w-12 h-12 rounded-full border-2 border-blue-400/30 bg-blue-500/10 hover:bg-blue-500/20 flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-90 disabled:opacity-30 disabled:hover:scale-100 group"
                             >
                                 <svg className="w-5 h-5 text-blue-400 group-hover:text-blue-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -377,8 +386,8 @@ export default function Binder() {
                             </button>
 
                             <button
-                                onClick={() => swipe('right')}
-                                disabled={!canSwipe}
+                                onClick={() => programmaticSwipe('right')}
+                                disabled={activeCards.length === 0}
                                 className="w-16 h-16 rounded-full border-2 border-emerald-400/30 bg-emerald-500/10 hover:bg-emerald-500/20 flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-90 disabled:opacity-30 disabled:hover:scale-100 group"
                             >
                                 <svg className="w-7 h-7 text-emerald-400 group-hover:text-emerald-300" fill="currentColor" viewBox="0 0 24 24">
@@ -394,7 +403,7 @@ export default function Binder() {
                         </div>
 
                         <div className="mt-4 text-center">
-                            <span className="text-xs text-gray-500">{currentIndex + 1} startup{currentIndex !== 0 ? 's' : ''} remaining</span>
+                            <span className="text-xs text-gray-500">{activeCards.length} startup{activeCards.length !== 1 ? 's' : ''} remaining</span>
                         </div>
                     </>
                 )}
@@ -497,9 +506,7 @@ export default function Binder() {
                                     <button
                                         onClick={() => {
                                             setShowDetails(false);
-                                            if (currentIndex >= 0 && currentIndex < deck.length) {
-                                                swipe('right');
-                                            }
+                                            setTimeout(() => programmaticSwipe('right'), 200);
                                         }}
                                         className="flex-1 py-3 bg-[#85BB65] hover:bg-[#74a856] text-[#0f1729] rounded-xl font-bold transition-colors"
                                     >
